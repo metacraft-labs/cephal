@@ -70,6 +70,8 @@ pub struct Tree<Ctx = ()> {
     detailed_grid: FxHashMap<u32, crate::tree::DetailedGridInfo>,
     absolute_contexts: FxHashMap<u32, crate::tree::AbsoluteContext>,
     scheduler: Scheduler,
+    /// How many dirty nodes the last layout recomputed.
+    recomputed: usize,
     /// The last root and available space laid out.
     last_root: Option<(NodeId, Size<AvailableSpace>)>,
 }
@@ -118,6 +120,7 @@ impl<Ctx> Tree<Ctx> {
             detailed_grid: FxHashMap::default(),
             absolute_contexts: FxHashMap::default(),
             scheduler: Scheduler::new(),
+            recomputed: 0,
             last_root: None,
         }
     }
@@ -456,6 +459,7 @@ impl<Ctx> Tree<Ctx> {
             detailed_grid: FxHashMap::default(),
             absolute_contexts: FxHashMap::default(),
             scheduler: Scheduler::new(),
+            recomputed: 0,
             last_root: None,
         }
     }
@@ -676,6 +680,11 @@ impl<Ctx> Tree<Ctx> {
         &self.changed
     }
 
+    /// How many dirty nodes the last layout recomputed before laying the root out.
+    pub fn recomputed(&self) -> usize {
+        self.recomputed
+    }
+
     /// Resolved tracks of a grid container from the last layout.
     pub fn detailed_grid_info(&self, node: NodeId) -> Option<&crate::tree::DetailedGridInfo> {
         self.detailed_grid.get(&(self.index(node) as u32))
@@ -750,6 +759,7 @@ impl<Ctx> Tree<Ctx> {
             crate::compute::compute_root_layout_incremental(&mut view, root, available_space, initial_containing_block);
         }
         let this = slot.get_mut();
+        this.recomputed = scheduler.take_recomputed();
         this.scheduler = scheduler;
         this.finish_frame(root, available_space, root_query_changed);
     }

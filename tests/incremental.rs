@@ -775,3 +775,34 @@ fn debug_seed() {
         }
     }
 }
+
+/// A label that grows inside its row changes nothing the list around the row reads: the row's
+/// overflow moves inside the row's own box. So the list, a scroll container of many rows, is not
+/// laid out again, and the result still equals a cold layout.
+#[test]
+fn overflow_inside_a_box_stops_at_the_box() {
+    use cephal::style::Overflow;
+    let mut tree: Tree<Text> = Tree::new();
+    let mut pane = cephal::Style::DEFAULT;
+    pane.display = Display::Block;
+    pane.overflow.y = Overflow::Scroll;
+    pane.size = Size { width: Dimension::length(300.0), height: Dimension::length(200.0) };
+    let root = tree.new_leaf(pane);
+    let mut row = cephal::Style::DEFAULT;
+    row.display = Display::Flex;
+    row.size.height = Dimension::length(18.0);
+    let mut labels = Vec::new();
+    for _ in 0..50 {
+        let line = tree.new_leaf(row.clone());
+        let label = tree.new_leaf_with_context(cephal::Style::DEFAULT, Text(5));
+        tree.append_child(line, label);
+        tree.append_child(root, line);
+        labels.push(label);
+    }
+    check(&mut tree, root, "first layout");
+    for (step, text) in [8, 3, 20, 5].into_iter().enumerate() {
+        tree.set_context(labels[25], Some(Text(text)));
+        check(&mut tree, root, &format!("label at {text} glyphs"));
+        assert_eq!(tree.recomputed(), 2, "step {step}: the label and its row, and not the list");
+    }
+}

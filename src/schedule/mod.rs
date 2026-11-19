@@ -66,6 +66,8 @@ pub struct Scheduler {
     initial_containing_block: bool,
     /// The root during [`Self::run`].
     root: Option<NodeId>,
+    /// How many nodes the runs since [`Self::take_recomputed`] recomputed.
+    recomputed: usize,
 }
 
 /// How a node's answers changed, as its parent sees them.
@@ -271,8 +273,14 @@ impl Scheduler {
         Some((change, !inflow || claims != 0))
     }
 
+    /// How many nodes the runs since the last call recomputed, and forgets it.
+    pub fn take_recomputed(&mut self) -> usize {
+        core::mem::take(&mut self.recomputed)
+    }
+
     /// Recomputes `node`'s cached answers in place; how they may differ from before.
     fn recompute<T: Incremental + ?Sized>(&mut self, tree: &mut T, node: NodeId) -> Change {
+        self.recomputed += 1;
         self.scratch.clear();
         let evicted = tree.cache_mut(node).had_eviction();
         tree.cache_mut(node).drain_observed(&mut self.scratch);

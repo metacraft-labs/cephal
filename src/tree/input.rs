@@ -146,7 +146,10 @@ impl LayoutOutput {
     /// Whether a parent could tell `self` from `old`, given this node's overflow styles.
     ///
     /// Parents read a child's overflow rectangle only on axes where it propagates (visible
-    /// overflow, no containment); on clipped or scrolled axes only the size matters.
+    /// overflow, no containment); on clipped or scrolled axes only the size matters. Where it
+    /// propagates, a parent reads it joined with the child's own box (see
+    /// [`crate::compute::common::overflow::scrollable_overflow_contribution`]), so overflow that
+    /// moves inside the box is not seen.
     pub fn same_for_parent(&self, old: &Self, overflow: Point<crate::style::Overflow>, contain: crate::style::Contain) -> bool {
         if !self.same_except_overflow(old) {
             return false;
@@ -154,8 +157,12 @@ impl LayoutOutput {
         let is_scroll_container = overflow.x.is_scroll_container() || overflow.y.is_scroll_container();
         let contained = contain.contains_scrollable_overflow();
         let (a, b) = (self.scrollable_overflow_rect, old.scrollable_overflow_rect);
-        let same_x = a.left == b.left && a.right == b.right;
-        let same_y = a.top == b.top && a.bottom == b.bottom;
+        // Compared bit for bit: a parent folds the edges with `min` and `max`, and `-0.0` against
+        // `0.0` can come out of that either way.
+        let same = |x: f32, y: f32| x.to_bits() == y.to_bits();
+        let (width, height) = (self.size.width, self.size.height);
+        let same_x = same(a.left.min(0.0), b.left.min(0.0)) && same(a.right.max(width), b.right.max(width));
+        let same_y = same(a.top.min(0.0), b.top.min(0.0)) && same(a.bottom.max(height), b.bottom.max(height));
         let propagates_x = !is_scroll_container && !contained && overflow.x == crate::style::Overflow::Visible;
         let propagates_y = !is_scroll_container && !contained && overflow.y == crate::style::Overflow::Visible;
         (same_x || !propagates_x) && (same_y || !propagates_y)
