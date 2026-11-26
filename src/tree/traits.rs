@@ -3,8 +3,8 @@
 use super::cache::NodeCache;
 use super::{DetailedGridInfo, Layout, LayoutInput, LayoutOutput, NodeId};
 use crate::compute::block::BlockContext;
-use crate::compute::oof::AbsoluteContext;
-use crate::geometry::{AvailableSpace, Size};
+use crate::compute::oof::{AbsoluteContext, AxisStaticPosition};
+use crate::geometry::{AvailableSpace, Point, Size};
 use crate::style::{CalcId, Ident, Style};
 
 /// Implicit grid line name suffixes.
@@ -259,6 +259,21 @@ pub trait LayoutTree {
     #[inline]
     fn containing_block_claims(&self, node: NodeId) -> u8 {
         crate::compute::oof::default_claims(self.style(node))
+    }
+
+    /// The static position of `node`, an out-of-flow child of `cb`, relative to `cb`'s border box:
+    /// where the box would have been had it been in flow (css-position-3 §4.6, CSS 2.1 §10.3.7
+    /// and §10.6.4).
+    ///
+    /// `recorded` is what `cb`'s own layout found, from where `node` sits among `cb`'s in-flow
+    /// children. That is the answer when `node` was written inside `cb`. A tree that holds an
+    /// out-of-flow box as a child of its containing block, rather than of the box it was written
+    /// inside, knows where it was written and answers for it here. Asked at the end of `cb`'s final
+    /// layout, when the layouts of `cb`'s in-flow descendants are written. The default keeps
+    /// `recorded`.
+    #[inline]
+    fn static_position(&self, _cb: NodeId, _node: NodeId, recorded: Point<AxisStaticPosition>) -> Point<AxisStaticPosition> {
+        recorded
     }
 
     /// Which of the out-of-flow boxes `node` lays out add to its scrollable overflow, as the same

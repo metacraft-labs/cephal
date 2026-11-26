@@ -370,9 +370,14 @@ fn collect<T: LayoutTree + ?Sized>(tree: &T, entries: &[OofEntry], mask: u8, ori
 pub(crate) fn finish<T: LayoutTree + CacheAccess + ?Sized>(
     tree: &mut T,
     node: NodeId,
-    entries: Vec<OofEntry>,
+    mut entries: Vec<OofEntry>,
     geometry: impl FnOnce() -> OofGeometry,
 ) -> (Rect<f32>, u8) {
+    for entry in &mut entries {
+        if let OofEntry::Seed { node: child, static_position, .. } = entry {
+            *static_position = tree.static_position(node, *child, *static_position);
+        }
+    }
     let claims = tree.containing_block_claims(node);
     let bits = entries.iter().fold(0, |acc, e| acc | e.bits());
     let geometry = if bits & claims != 0 { Some(geometry()) } else { None };
